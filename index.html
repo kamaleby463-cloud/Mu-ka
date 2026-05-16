@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -762,10 +763,16 @@
             document.getElementById('browser-frame').addEventListener('load', iframeLoaded);
         });
 
+        // تم التعديل هنا: جلب البيانات من localforage لحل مشكلة النسيان عند إغلاق التطبيق
         async function loadAuthData() {
-            authState.pin = localStorage.getItem('vvp_pin');
-            authState.question = localStorage.getItem('vvp_sq');
-            authState.answer = localStorage.getItem('vvp_sa');
+            authState.pin = await localforage.getItem('vvp_pin');
+            if (!authState.pin) authState.pin = localStorage.getItem('vvp_pin'); // Fallback
+
+            authState.question = await localforage.getItem('vvp_sq');
+            if (!authState.question) authState.question = localStorage.getItem('vvp_sq');
+
+            authState.answer = await localforage.getItem('vvp_sa');
+            if (!authState.answer) authState.answer = localStorage.getItem('vvp_sa');
         }
 
         function simulateBootSequence() {
@@ -913,16 +920,23 @@
             }
         }
 
-        function saveSecurityQuestion() {
+        // تم التعديل هنا: استخدام localforage للحفظ الدائم وحل مشكلة المسح المستمر
+        async function saveSecurityQuestion() {
             const q = document.getElementById('security-q').value;
             const a = document.getElementById('security-a').value.trim();
             if(!a) return showToast('يجب إدخال إجابة', true);
             
+            // حفظ أساسي وقوي في IndexedDB
+            await localforage.setItem('vvp_pin', currentPin);
+            await localforage.setItem('vvp_sq', q);
+            await localforage.setItem('vvp_sa', a.toLowerCase());
+
+            // حفظ احتياطي في الـ Storage القديم 
             localStorage.setItem('vvp_pin', currentPin);
             localStorage.setItem('vvp_sq', q);
             localStorage.setItem('vvp_sa', a.toLowerCase());
             
-            loadAuthData();
+            await loadAuthData();
             showToast('تم تأمين الخزنة بنجاح!');
             showView('view-main-app');
         }
@@ -932,11 +946,13 @@
             document.getElementById('recovery-a-input').value = '';
         }
 
-        function verifySecurityAnswer() {
+        // تم التعديل هنا لتتوافق مع localforage
+        async function verifySecurityAnswer() {
             const inputA = document.getElementById('recovery-a-input').value.trim().toLowerCase();
             if(inputA === authState.answer) {
                 showToast('إجابة صحيحة. قم بتعيين رمز جديد');
-                localStorage.removeItem('vvp_pin'); // Temp remove
+                await localforage.removeItem('vvp_pin'); // إزالة من الذاكرة الدائمة
+                localStorage.removeItem('vvp_pin'); 
                 showView('view-setup');
                 document.getElementById('setup-title').textContent = 'تعيين رمز جديد';
             } else {
@@ -1473,4 +1489,6 @@
         }
     </script>
 </body>
-                </html>
+</html>
+
+
